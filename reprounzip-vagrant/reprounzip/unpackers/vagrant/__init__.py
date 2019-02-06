@@ -167,6 +167,9 @@ def machine_setup(target):
         chan = ssh.get_transport().open_session()
         chan.exec_command(
             '/usr/bin/sudo /bin/sh -c %s' % shell_escape(
+                'if ! grep -q "/experimentroot " /proc/mounts; then '
+                'mount -o bind /.experimentdata /experimentroot; '
+                'fi; '
                 'if ! grep -q "/experimentroot/dev " /proc/mounts; then '
                 'mount -o rbind /dev /experimentroot/dev; '
                 'fi; '
@@ -298,19 +301,20 @@ def vagrant_setup_create(args):
             # Untar
             if use_chroot:
                 fp.write('\n'
-                         'mkdir /experimentroot; cd /experimentroot\n')
+                         'mkdir /experimentroot\n'
+                         'mkdir /.experimentdata; cd /.experimentdata\n')
                 fp.write('tar zpxf /vagrant/data.tgz --numeric-owner '
                          '--strip=1 %s\n' % rpz_pack.data_prefix)
                 if mount_bind:
                     fp.write('\n'
-                             'mkdir -p /experimentroot/dev\n'
-                             'mkdir -p /experimentroot/proc\n')
+                             'mkdir -p /.experimentdata/dev\n'
+                             'mkdir -p /.experimentdata/proc\n')
 
                 for pkg in packages:
                     fp.write('\n# Copies files from package %s\n' % pkg.name)
                     for f in pkg.files:
                         f = f.path
-                        dest = join_root(PosixPath('/experimentroot'), f)
+                        dest = join_root(PosixPath('/.experimentdata'), f)
                         fp.write('mkdir -p %s\n' %
                                  shell_escape(unicode_(f.parent)))
                         fp.write('cp -L %s %s\n' % (
@@ -318,7 +322,7 @@ def vagrant_setup_create(args):
                                  shell_escape(unicode_(dest))))
                 fp.write(
                     '\n'
-                    'cp /etc/resolv.conf /experimentroot/etc/resolv.conf\n')
+                    'cp /etc/resolv.conf /.experimentdata/etc/resolv.conf\n')
             else:
                 fp.write('\ncd /\n')
                 paths = set()
@@ -365,11 +369,11 @@ def vagrant_setup_create(args):
                               target / 'busybox',
                               'busybox-%s' % arch)
                 fp.write(r'''
-cp /vagrant/busybox /experimentroot/busybox
-chmod +x /experimentroot/busybox
-mkdir -p /experimentroot/bin
-[ -e /experimentroot/bin/sh ] || \
-    ln -s /busybox /experimentroot/bin/sh
+cp /vagrant/busybox /.experimentdata/busybox
+chmod +x /.experimentdata/busybox
+mkdir -p /.experimentdata/bin
+[ -e /.experimentdata/bin/sh ] || \
+    ln -s /busybox /.experimentdata/bin/sh
 ''')
 
         # Copies pack
